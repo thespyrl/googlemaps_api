@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Best Route: Lockport, NY to East Aurora, NY (14052)</title>
+    <title>Routes: Customizable Start and End</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -18,10 +18,32 @@
         }
         #directions {
             margin-top: 20px;
-            padding: 15px;
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap; /* Allow wrapping on smaller screens */
+        }
+        .route-card {
+            flex: 1;
+            min-width: 300px; /* Minimum width for cards */
             background: white;
-            border-radius: 5px;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            border-radius: 8px;
+            padding: 15px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+            border: 1px solid #ddd;
+        }
+        .route-card h3 {
+            margin: 0 0 10px;
+            font-size: 1.2em;
+        }
+        .route-card p {
+            margin: 5px 0;
+        }
+        .route-card ol {
+            margin: 10px 0 0;
+            padding-left: 20px;
+        }
+        .route-card ol li {
+            margin-bottom: 5px;
         }
         h1 {
             color: #333;
@@ -37,16 +59,75 @@
         button:hover {
             background: #0056b3;
         }
+        .controls {
+            margin-bottom: 10px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            align-items: center;
+        }
+        .controls input[type="text"] {
+            padding: 8px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            width: 250px;
+            max-width: 100%;
+        }
+        .swap-button {
+            padding: 8px 15px;
+            background: #28a745;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        .swap-button:hover {
+            background: #218838;
+        }
+        label {
+            margin-right: 10px;
+        }
+        .route-legend {
+            margin: 10px 0;
+            font-size: 14px;
+        }
+        .route-legend p {
+            margin: 5px 0;
+        }
+        .route-legend span {
+            display: inline-block;
+            width: 20px;
+            height: 10px;
+            margin-right: 5px;
+            vertical-align: middle;
+        }
     </style>
 </head>
 <body>
-    <h1>Best Route from Lockport, NY to East Aurora, NY (14052)</h1>
-    <button onclick="getRoute()">Calculate Route</button>
+    <h1>Custom Routes</h1>
+    <div class="controls">
+        <div>
+            <label for="start">Start:</label>
+            <input type="text" id="start" value="24 Michigan Street Lockport, NY" placeholder="Enter start address">
+        </div>
+        <div>
+            <label for="end">End:</label>
+            <input type="text" id="end" value="4777 Reiter Road East Aurora, NY 14052" placeholder="Enter end address">
+        </div>
+        <button class="swap-button" onclick="swapAddresses()">Swap</button>
+        <label><input type="checkbox" id="avoidHighways" onchange="getRoutes()"> Avoid Highways</label>
+        <button onclick="getRoutes()">Calculate Routes</button>
+    </div>
+    <div class="route-legend">
+        <p><span style="background-color: red;"></span> Shortest Distance</p>
+        <p><span style="background-color: yellow;"></span> Alternative Route</p>
+        <p><span style="background-color: green;"></span> Fastest Route</p>
+    </div>
     <div id="map"></div>
     <div id="directions"></div>
 
     <script>
-        let map, directionsService, directionsRenderer;
+        let map, directionsService, directionsRenderers = [];
 
         function initMap() {
             // Initialize map centered on Lockport, NY
@@ -55,32 +136,122 @@
                 center: { lat: 43.1706, lng: -78.6903 } // Lockport coordinates
             });
 
-            // Initialize Directions Service and Renderer
+            // Initialize Directions Service
             directionsService = new google.maps.DirectionsService();
-            directionsRenderer = new google.maps.DirectionsRenderer();
-            directionsRenderer.setMap(map);
-            directionsRenderer.setPanel(document.getElementById("directions"));
+
+            // Calculate initial routes on map load
+            getRoutes();
         }
 
-        function getRoute() {
-            const start = "24 Michigan Street Lockport, NY";
-            const end = "4777 Reiter Road East Aurora, NY 14052";
+        function swapAddresses() {
+            const startInput = document.getElementById("start");
+            const endInput = document.getElementById("end");
+            const temp = startInput.value;
+            startInput.value = endInput.value;
+            endInput.value = temp;
+
+            // Recalculate routes after swapping
+            getRoutes();
+        }
+
+        function getRoutes() {
+            const start = document.getElementById("start").value.trim();
+            const end = document.getElementById("end").value.trim();
+            const avoidHighways = document.getElementById("avoidHighways").checked;
+
+            // Validate inputs
+            if (!start || !end) {
+                alert("Please enter both start and end addresses.");
+                return;
+            }
+
             const request = {
                 origin: start,
                 destination: end,
-                travelMode: "DRIVING",
+                travelMode: google.maps.TravelMode.DRIVING,
                 provideRouteAlternatives: true,
+                avoidHighways: avoidHighways,
                 drivingOptions: {
-                    departureTime: new Date(), // Current time for traffic
-                    trafficModel: "bestguess" // Considers current and predicted traffic
+                    departureTime: new Date(),
+                    trafficModel: "bestguess"
                 }
             };
 
+            // Clear previous renderers and directions
+            directionsRenderers.forEach(renderer => renderer.setMap(null));
+            directionsRenderers = [];
+            document.getElementById("directions").innerHTML = "";
+
             directionsService.route(request, (result, status) => {
-                if (status === "OK") {
-                    directionsRenderer.setDirections(result);
+                if (status === google.maps.DirectionsStatus.OK) {
+                    // Process routes
+                    const routes = result.routes;
+                    if (routes.length === 0) {
+                        alert("No routes found.");
+                        return;
+                    }
+
+                    // Find fastest and shortest routes
+                    let fastestRoute = routes[0];
+                    let shortestRoute = routes[0];
+                    let fastestDuration = routes[0].legs[0].duration.value;
+                    let shortestDistance = routes[0].legs[0].distance.value;
+
+                    routes.forEach(route => {
+                        const duration = route.legs[0].duration.value;
+                        const distance = route.legs[0].distance.value;
+                        if (duration < fastestDuration) {
+                            fastestRoute = route;
+                            fastestDuration = duration;
+                        }
+                        if (distance < shortestDistance) {
+                            shortestRoute = route;
+                            shortestDistance = distance;
+                        }
+                    });
+
+                    // Assign routes to renderers in order: shortest, alternative, fastest
+                    const routeAssignments = [
+                        { route: shortestRoute, color: "red", label: "Shortest Distance" },
+                        { route: routes.find(r => r !== fastestRoute && r !== shortestRoute) || routes[1] || routes[0], color: "yellow", label: "Alternative Route" },
+                        { route: fastestRoute, color: "green", label: "Fastest Route" }
+                    ];
+
+                    // Render each route
+                    routeAssignments.forEach((assignment, index) => {
+                        if (!assignment.route) return; // Skip if no route
+                        const renderer = new google.maps.DirectionsRenderer({
+                            map: map,
+                            directions: result,
+                            routeIndex: routes.indexOf(assignment.route),
+                            polylineOptions: {
+                                strokeColor: assignment.color,
+                                strokeWeight: 5,
+                                strokeOpacity: 0.7
+                            },
+                            suppressMarkers: index !== 0 // Markers only on shortest route
+                        });
+                        directionsRenderers.push(renderer);
+
+                        // Create card for directions
+                        const directionsPanel = document.getElementById("directions");
+                        const routeCard = document.createElement("div");
+                        routeCard.className = "route-card";
+                        routeCard.innerHTML = `<h3 style="color: ${assignment.color}">${assignment.label}</h3>` +
+                            `<p>Distance: ${assignment.route.legs[0].distance.text}</p>` +
+                            `<p>Duration: ${assignment.route.legs[0].duration.text}</p>` +
+                            `<p>Summary: ${assignment.route.summary}</p>` +
+                            `<ol>${assignment.route.legs[0].steps.map(step => `<li>${step.instructions}</li>`).join("")}</ol>`;
+                        directionsPanel.appendChild(routeCard);
+                    });
+
+                    // Re-center map based on the shortest route's start point
+                    if (routes[0].legs[0].start_location) {
+                        map.setCenter(routes[0].legs[0].start_location);
+                    }
                 } else {
-                    alert("Error: Could not calculate route. " + status);
+                    alert("Error: Could not calculate routes. Status: " + status);
+                    console.error("Directions API error:", status, result);
                 }
             });
         }

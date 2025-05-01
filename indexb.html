@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Best Route: Lockport, NY to East Aurora, NY (14052)</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f4f4f4;
+        }
+        #map {
+            height: 500px;
+            width: 100%;
+            border: 1px solid #ccc;
+        }
+        #directions {
+            margin-top: 20px;
+            padding: 15px;
+            background: white;
+            border-radius: 5px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+        }
+        button {
+            padding: 10px 20px;
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+    </style>
+</head>
+<body>
+    <h1>Best Route from Lockport, NY to East Aurora, NY (14052)</h1>
+    <button onclick="getRoute()">Calculate Route</button>
+    <div id="map"></div>
+    <div id="directions"></div>
+
+    <script>
+        let map, directionsService, directionsRenderer;
+
+        function initMap() {
+            // Initialize map centered on Lockport, NY
+            map = new google.maps.Map(document.getElementById("map"), {
+                zoom: 10,
+                center: { lat: 43.1706, lng: -78.6903 } // Lockport coordinates
+            });
+
+            // Initialize Directions Service and Renderer
+            directionsService = new google.maps.DirectionsService();
+            directionsRenderer = new google.maps.DirectionsRenderer();
+            directionsRenderer.setMap(map);
+            directionsRenderer.setPanel(document.getElementById("directions"));
+        }
+
+        function getRoute() {
+            const start = "24 Michigan Street Lockport, NY";
+            const end = "4777 Reiter Road East Aurora, NY 14052";
+            const request = {
+                origin: start,
+                destination: end,
+                travelMode: "DRIVING",
+                provideRouteAlternatives: true,
+                drivingOptions: {
+                    departureTime: new Date(), // Current time for traffic
+                    trafficModel: "bestguess" // Considers current and predicted traffic
+                }
+            };
+
+            directionsService.route(request, (result, status) => {
+                if (status === "OK") {
+                    directionsRenderer.setDirections(result);
+                } else {
+                    alert("Error: Could not calculate route. " + status);
+                }
+            });
+        }
+    </script>
+
+    <!-- Load Google Maps API (replace YOUR_API_KEY with your actual key) -->
+    <script async
+        src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBNLCj9I1fRuRAl80gXfCYCmeu68fPRXa8&callback=initMap">
+    </script>
+</body>
+</html>
